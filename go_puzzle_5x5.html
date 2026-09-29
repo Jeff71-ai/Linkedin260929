@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>5×5 围棋小题 | Go Puzzle</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;background:linear-gradient(135deg,#f6f1ea 0%,#e8dcc8 100%);min-height:100vh;color:#2c2c2c;overflow-x:hidden}
+.app{max-width:960px;margin:0 auto;padding:20px 16px 40px}
+.header{text-align:center;margin-bottom:24px}
+.header h1{font-size:28px;font-weight:700;letter-spacing:2px;background:linear-gradient(135deg,#1a1a2e 0%,#3a3a5e 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.header .subtitle{font-size:14px;color:#888;margin-top:6px}
+.tabs{display:flex;gap:8px;justify-content:center;margin-bottom:20px}
+.tab{padding:10px 32px;border:none;border-radius:10px;font-size:15px;font-weight:600;cursor:pointer;transition:all .3s ease;background:rgba(255,255,255,.6);color:#666;backdrop-filter:blur(10px)}
+.tab.active{background:linear-gradient(135deg,#2c3e50 0%,#1a1a2e 100%);color:#fff;box-shadow:0 4px 15px rgba(44,62,80,.3)}
+.tab:hover:not(.active){background:rgba(255,255,255,.9);color:#333}
+.main{display:flex;gap:24px;align-items:flex-start;justify-content:center}
+.board-section{position:relative;flex-shrink:0}
+#boardCanvas{display:block;border-radius:16px;box-shadow:0 8px 32px rgba(0,0,0,.15),inset 0 0 0 1px rgba(0,0,0,.05);cursor:pointer;max-width:100%;height:auto}
+#effectCanvas{position:absolute;top:0;left:0;pointer-events:none;border-radius:16px;display:none}
+.board-status{text-align:center;margin-top:12px;font-size:14px;color:#666;min-height:20px;transition:color .3s}
+.side-section{flex:1;min-width:280px;max-width:360px}
+.panel{background:rgba(255,255,255,.75);border-radius:16px;padding:24px;box-shadow:0 4px 20px rgba(0,0,0,.06);backdrop-filter:blur(10px)}
+.panel h3{font-size:16px;margin-bottom:12px;color:#1a1a2e}
+.panel p{font-size:13px;color:#888;margin-bottom:12px;line-height:1.6}
+.color-toggle{display:flex;gap:8px;margin-bottom:16px}
+.color-btn{flex:1;padding:10px;border:2px solid #ddd;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;transition:all .2s;background:#fff}
+.color-btn.active{border-color:#2c3e50;box-shadow:0 0 0 3px rgba(44,62,80,.1)}
+.color-btn.black{color:#1a1a1a}
+.color-btn.white{color:#999}
+.btn{display:inline-block;padding:10px 20px;border:1px solid #ddd;border-radius:10px;font-size:14px;font-weight:500;cursor:pointer;transition:all .2s;background:#fff;color:#333;margin:4px 2px}
+.btn:hover{background:#f5f5f5;transform:translateY(-1px)}
+.btn.primary{background:linear-gradient(135deg,#2c3e50 0%,#1a1a2e 100%);color:#fff;border:none}
+.btn.primary:hover{box-shadow:0 4px 15px rgba(44,62,80,.3)}
+.timer-display{font-size:36px;font-weight:700;font-family:'SF Mono','Fira Code',monospace;color:#2c3e50;text-align:center;margin:12px 0;letter-spacing:2px}
+.timer-display.running{color:#e94560}
+.move-list{display:flex;flex-wrap:wrap;gap:6px;margin:12px 0;max-height:100px;overflow-y:auto}
+.move-item{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:8px;font-size:13px;background:#f0f0f0}
+.stone-mini{width:14px;height:14px;border-radius:50%;display:inline-block}
+.stone-mini.black{background:radial-gradient(circle at 30% 30%,#555,#000)}
+.stone-mini.white{background:radial-gradient(circle at 30% 30%,#fff,#ccc);border:1px solid #ddd}
+.leaderboard{margin-top:20px;border-top:1px solid #eee;padding-top:16px}
+.leaderboard h3{margin-bottom:12px}
+.leaderboard-item{display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:8px;margin-bottom:4px;font-size:14px;transition:all .2s}
+.leaderboard-item:nth-child(1){background:linear-gradient(135deg,#ffd700 0%,#ffed4e 100%);color:#5a4500;font-weight:700}
+.leaderboard-item:nth-child(2){background:linear-gradient(135deg,#c0c0c0 0%,#e0e0e0 100%);color:#333;font-weight:600}
+.leaderboard-item:nth-child(3){background:linear-gradient(135deg,#cd7f32 0%,#daa06d 100%);color:#fff;font-weight:600}
+.leaderboard-item .rank{width:28px;text-align:center;font-weight:700}
+.leaderboard-item .name{flex:1}
+.leaderboard-item .time{font-family:'SF Mono',monospace;font-weight:600}
+.leaderboard-empty{text-align:center;color:#aaa;font-size:13px;padding:20px}
+.share-url-box{width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;font-size:12px;margin-bottom:12px;resize:vertical;min-height:60px;font-family:monospace;color:#666;background:#fafafa}
+.alert{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(231,76,60,.95);color:#fff;padding:20px 40px;border-radius:12px;font-size:18px;font-weight:700;z-index:1000;box-shadow:0 8px 32px rgba(231,76,60,.4);animation:alertPop .3s ease}
+@keyframes alertPop{0%{transform:translate(-50%,-50%) scale(.5);opacity:0}50%{transform:translate(-50%,-50%) scale(1.1)}100%{transform:translate(-50%,-50%) scale(1);opacity:1}}
+.alert.shake{animation:shake .5s ease}
+@keyframes shake{0%,100%{transform:translate(-50%,-50%) translateX(0)}25%{transform:translate(-50%,-50%) translateX(-10px)}75%{transform:translate(-50%,-50%) translateX(10px)}}
+.success-msg{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(46,204,113,.95);color:#fff;padding:24px 48px;border-radius:16px;font-size:22px;font-weight:700;z-index:1000;box-shadow:0 8px 32px rgba(46,204,113,.4);text-align:center;animation:alertPop .5s ease}
+.modal-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;z-index:2000}
+.modal-overlay.active{display:flex}
+.modal{background:#fff;border-radius:16px;padding:32px;max-width:400px;width:90%;box-shadow:0 16px 48px rgba(0,0,0,.2)}
+.modal h3{margin-bottom:16px}
+.modal input{width:100%;padding:12px;border:2px solid #ddd;border-radius:10px;font-size:16px;margin-bottom:16px;transition:border-color .2s}
+.modal input:focus{border-color:#2c3e50;outline:none}
+.footer{display:flex;justify-content:center;gap:8px;margin-top:24px;padding-top:16px;border-top:1px solid rgba(0,0,0,.05)}
+.phase{display:none}
+.phase.active{display:block;animation:fadeIn .3s ease}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+@keyframes boardShake{0%,100%{transform:translateX(0)}20%{transform:translateX(-8px)}40%{transform:translateX(8px)}60%{transform:translateX(-6px)}80%{transform:translateX(6px)}}
+.shake-board{animation:boardShake .4s ease}
+.help-content{font-size:14px;line-height:1.8;color:#555}
+.help-content h4{margin:12px 0 6px;color:#1a1a2e}
+.help-content ul{padding-left:20px;margin-bottom:12px}
+.help-content li{margin-bottom:4px}
+@media(max-width:768px){.main{flex-direction:column;align-items:center}.side-section{width:100%;max-width:440px}#boardCanvas{width:100%;max-width:440px}}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="header">
+    <h1>⚫⚪ 5×5 围棋小题</h1>
+    <p class="subtitle">出题 · 解题 · 排行榜</p>
+  </div>
+  <div class="tabs">
+    <button class="tab active" id="tabCreate" onclick="switchTab('create')">✏️ 出题</button>
+    <button class="tab" id="tabPlay" onclick="switchTab('play')">🎮 解题</button>
+  </div>
+  <div class="main">
+    <div class="board-section">
+      <canvas id="boardCanvas" width="440" height="440"></canvas>
+      <canvas id="effectCanvas" width="440" height="440"></canvas>
+      <div class="board-status" id="boardStatus">出题模式 — 点击棋盘摆放黑白子</div>
+    </div>
+    <div class="side-section">
+      <div id="createPanel" class="panel">
+        <div class="phase active" id="phasePosition">
+          <h3>第一步：摆放初始局面</h3>
+          <p>选择棋子颜色，点击棋盘交叉点放置/移除棋子。</p>
+          <div class="color-toggle">
+            <button class="color-btn black active" id="colorBlack" onclick="setPlacementColor(1)">⚫ 黑子</button>
+            <button class="color-btn white" id="colorWhite" onclick="setPlacementColor(2)">⚪ 白子</button>
+          </div>
+          <button class="btn" onclick="clearBoard()">清空棋盘</button>
+          <button class="btn primary" onclick="goToSolutionPhase()">下一步：设置解答 →</button>
+        </div>
+        <div class="phase" id="phaseSolution">
+          <h3>第二步：录制正确解答</h3>
+          <p>按解题顺序点击棋盘交叉点（黑先，黑白交替）。建议 6-8 步。</p>
+          <div class="move-list" id="moveList"></div>
+          <button class="btn" onclick="undoSolutionMove()">撤销</button>
+          <button class="btn" onclick="goToPositionPhase()">← 返回摆盘</button>
+          <button class="btn primary" onclick="goToSharePhase()">生成分享链接 →</button>
+        </div>
+        <div class="phase" id="phaseShare">
+          <h3>第三步：分享题目</h3>
+          <p>复制下方链接，发布到领英动态。访问者点击即可开始解题。</p>
+          <textarea class="share-url-box" id="shareUrlBox" readonly></textarea>
+          <button class="btn primary" onclick="copyShareUrl()">📋 复制链接</button>
+          <button class="btn" onclick="testPuzzle()">🎮 测试题目</button>
+          <div style="margin-top:16px">
+            <button class="btn" onclick="goToSolutionPhase()">← 修改解答</button>
+          </div>
+        </div>
+      </div>
+      <div id="playPanel" class="panel" style="display:none">
+        <div class="timer-display" id="timerDisplay">00:00.0</div>
+        <div id="playInfo" style="text-align:center;font-size:14px;color:#888;margin-bottom:16px">点击棋盘开始解题。黑先，黑白交替。</div>
+        <div style="text-align:center">
+          <button class="btn" onclick="manualReset()">🔄 重新开始</button>
+          <button class="btn" onclick="showSolutionHint()">👁 查看解答</button>
+        </div>
+        <div class="leaderboard">
+          <h3>🏆 排行榜</h3>
+          <div id="leaderboardList"></div>
+          <div style="text-align:right;margin-top:8px">
+            <button class="btn" style="font-size:12px;padding:4px 12px" onclick="clearLeaderboard()">清除</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="footer">
+    <button class="btn" onclick="downloadSource()">💾 下载源代码</button>
+    <button class="btn" onclick="exportPuzzle()">📤 导出题目配置</button>
+    <button class="btn" onclick="showHelp()">❓ 使用说明</button>
+  </div>
+</div>
+<div class="modal-overlay" id="nameModal">
+  <div class="modal">
+    <h3>🎉 恭喜通关！</h3>
+    <p style="margin-bottom:12px;color:#888">请输入你的名字，记录成绩：</p>
+    <input type="text" id="playerName" placeholder="你的名字" maxlength="20">
+    <div style="text-align:center">
+      <button class="btn primary" onclick="submitScore()">提交成绩</button>
+    </div>
+  </div>
+</div>
+<div class="modal-overlay" id="helpModal">
+  <div class="modal">
+    <h3>❓ 使用说明</h3>
+    <div class="help-content">
+      <h4>出题流程</h4>
+      <ul>
+        <li>切换到「出题」标签</li>
+        <li>选择黑子或白子，点击棋盘交叉点摆放初始局面</li>
+        <li>点击「下一步」进入解答录制</li>
+        <li>按正确顺序点击棋盘交叉点（黑先，黑白交替），建议 6-8 步</li>
+        <li>点击「生成分享链接」，复制链接发布到领英</li>
+      </ul>
+      <h4>解题规则</h4>
+      <ul>
+        <li>黑子先行，黑白交替落子</li>
+        <li>每步即时验证，走错立即提示并重置</li>
+        <li>全部正确则触发礼花动画并记录时间</li>
+        <li>排行榜按解题时间排序</li>
+      </ul>
+      <h4>部署方式</h4>
+      <ul>
+        <li>将本 HTML 文件上传到任意静态托管服务（GitHub Pages、Netlify 等）</li>
+        <li>出题后生成的链接可直接分享到领英</li>
+        <li>排行榜基于浏览器本地存储，不同设备各自记录</li>
+        <li>如需全局共享排行榜，需接入后端 API</li>
+      </ul>
+    </div>
+    <div style="text-align:center;margin-top:16px">
+      <button class="btn primary" onclick="closeHelp()">知道了</button>
+    </div>
+  </div>
+</div>
+<script>
+const BOARD_SIZE=5,CANVAS_SIZE=440,MARGIN=44,CELL_SIZE=(CANVAS_SIZE-2*MARGIN)/(BOARD_SIZE-1),STONE_RADIUS=CELL_SIZE*0.42;
+const EMPTY=0,BLACK=1,WHITE=2;
+let currentMode='create',createPhase='position';
+let editBoard=new Array(25).fill(EMPTY),savedInitialBoard=new Array(25).fill(EMPTY);
+let solutionMoves=[],solutionBoardState=new Array(25).fill(EMPTY),placementColor=BLACK;
+let playBoard=new Array(25).fill(EMPTY),playedMoves=[],playMoveIndex=0;
+let timerStart=0,timerInterval=null,isTimerRunning=false;
+let puzzleData=null,isPuzzleSolved=false,hoverPos=-1;
+const canvas=document.getElementById('boardCanvas'),ctx=canvas.getContext('2d');
+const effectCanvas=document.getElementById('effectCanvas'),effectCtx=effectCanvas.getContext('2d');
+
+function posToXY(pos){const r=Math.floor(pos/BOARD_SIZE),c=pos%BOARD_SIZE;return{x:MARGIN+c*CELL_SIZE,y:MARGIN+r*CELL_SIZE,row:r,col:c}}
+function xyToPos(x,y){const c=Math.round((x-MARGIN)/CELL_SIZE),r=Math.round((y-MARGIN)/CELL_SIZE);
+  if(c>=0&&c<BOARD_SIZE&&r>=0&&r<BOARD_SIZE){const dx=(x-MARGIN)/CELL_SIZE-c,dy=(y-MARGIN)/CELL_SIZE-r;
+  if(Math.abs(dx)<=0.45&&Math.abs(dy)<=0.45)return r*BOARD_SIZE+c}return-1}
+
+function drawBoardBackground(){
+  const g=ctx.createLinearGradient(0,0,CANVAS_SIZE,CANVAS_SIZE);
+  g.addColorStop(0,'#E8C98A');g.addColorStop(0.5,'#DDB770');g.addColorStop(1,'#D4A85C');
+  ctx.fillStyle=g;ctx.fillRect(0,0,CANVAS_SIZE,CANVAS_SIZE);
+  ctx.save();ctx.globalAlpha=0.03;
+  for(let i=0;i<CANVAS_SIZE;i+=4){ctx.fillStyle=i%8===0?'#000':'#fff';ctx.fillRect(0,i,CANVAS_SIZE,1)}
+  ctx.restore();
+}
+function drawGrid(){
+  ctx.strokeStyle='#4a3a1e';ctx.lineWidth=1.5;
+  for(let i=0;i<BOARD_SIZE;i++){const y=MARGIN+i*CELL_SIZE;ctx.beginPath();ctx.moveTo(MARGIN,y);ctx.lineTo(CANVAS_SIZE-MARGIN,y);ctx.stroke()}
+  for(let i=0;i<BOARD_SIZE;i++){const x=MARGIN+i*CELL_SIZE;ctx.beginPath();ctx.moveTo(x,MARGIN);ctx.lineTo(x,CANVAS_SIZE-MARGIN);ctx.stroke()}
+  const c=posToXY(12);ctx.fillStyle='#4a3a1e';ctx.beginPath();ctx.arc(c.x,c.y,4,0,Math.PI*2);ctx.fill();
+}
+function drawStone(x,y,color,moveNum,alpha){
+  alpha=alpha===undefined?1:alpha;
+  ctx.save();ctx.globalAlpha=alpha;
+  const r=STONE_RADIUS;
+  ctx.beginPath();ctx.arc(x+2,y+3,r,0,Math.PI*2);ctx.fillStyle='rgba(0,0,0,0.25)';ctx.fill();
+  if(color===BLACK){
+    const g=ctx.createRadialGradient(x-r*0.3,y-r*0.3,r*0.1,x,y,r);
+    g.addColorStop(0,'#555');g.addColorStop(0.4,'#1a1a1a');g.addColorStop(1,'#000');
+    ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fillStyle=g;ctx.fill();
+    const h=ctx.createRadialGradient(x-r*0.35,y-r*0.35,0,x-r*0.3,y-r*0.3,r*0.5);
+    h.addColorStop(0,'rgba(255,255,255,0.25)');h.addColorStop(1,'rgba(255,255,255,0)');
+    ctx.fillStyle=h;ctx.fill();
+  }else{
+    const g=ctx.createRadialGradient(x-r*0.3,y-r*0.3,r*0.1,x,y,r);
+    g.addColorStop(0,'#ffffff');g.addColorStop(0.6,'#f0ede5');g.addColorStop(1,'#c8c4ba');
+    ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fillStyle=g;ctx.fill();
+    const h=ctx.createRadialGradient(x-r*0.35,y-r*0.35,0,x-r*0.3,y-r*0.3,r*0.5);
+    h.addColorStop(0,'rgba(255,255,255,0.8)');h.addColorStop(1,'rgba(255,255,255,0)');
+    ctx.fillStyle=h;ctx.fill();
+  }
+  if(moveNum!==undefined&&moveNum>0){
+    ctx.font='bold 14px -apple-system,sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillStyle=color===BLACK?'#fff':'#000';ctx.fillText(moveNum,x,y);
+  }
+  ctx.restore();
+}
+function drawHover(pos,color){if(pos<0)return;const{x,y}=posToXY(pos);drawStone(x,y,color,undefined,0.4)}
+
+function getDisplayBoard(){
+  if(currentMode==='create'){
+    if(createPhase==='position')return editBoard;
+    if(createPhase==='solution')return solutionBoardState;
+  }
+  if(currentMode==='play')return playBoard;
+  return new Array(25).fill(EMPTY);
+}
+function getDisplayMoveNumbers(){
+  const m={};
+  if(currentMode==='create'&&createPhase==='solution'){solutionMoves.forEach((p,i)=>{m[p]=i+1})}
+  if(currentMode==='play'){playedMoves.forEach((p,i)=>{m[p]=i+1})}
+  return m;
+}
+function render(){
+  ctx.clearRect(0,0,CANVAS_SIZE,CANVAS_SIZE);
+  drawBoardBackground();drawGrid();
+  const b=getDisplayBoard(),mn=getDisplayMoveNumbers();
+  for(let i=0;i<25;i++){if(b[i]!==EMPTY){const{x,y}=posToXY(i);drawStone(x,y,b[i],mn[i])}}
+}
+
+function setPlacementColor(c){placementColor=c;
+  document.getElementById('colorBlack').classList.toggle('active',c===BLACK);
+  document.getElementById('colorWhite').classList.toggle('active',c===WHITE);
+}
+function clearBoard(){editBoard=new Array(25).fill(EMPTY);render()}
+function goToSolutionPhase(){
+  savedInitialBoard=[...editBoard];solutionBoardState=[...editBoard];solutionMoves=[];
+  createPhase='solution';
+  document.getElementById('phasePosition').classList.remove('active');
+  document.getElementById('phaseSolution').classList.add('active');
+  document.getElementById('boardStatus').textContent='出题模式 — 按顺序点击交叉点录制解答（黑先）';
+  updateMoveList();render();
+}
+function goToPositionPhase(){
+  createPhase='position';editBoard=[...savedInitialBoard];
+  document.getElementById('phaseSolution').classList.remove('active');
+  document.getElementById('phasePosition').classList.add('active');
+  document.getElementById('boardStatus').textContent='出题模式 — 点击棋盘摆放黑白子';
+  render();
+}
+function addSolutionMove(pos){
+  if(solutionBoardState[pos]!==EMPTY)return;
+  const c=solutionMoves.length%2===0?BLACK:WHITE;
+  solutionBoardState[pos]=c;solutionMoves.push(pos);
+  updateMoveList();render();
+}
+function undoSolutionMove(){
+  if(solutionMoves.length===0)return;
+  const p=solutionMoves.pop();solutionBoardState[p]=EMPTY;
+  updateMoveList();render();
+}
+function updateMoveList(){
+  const l=document.getElementById('moveList');
+  l.innerHTML=solutionMoves.map((p,i)=>{
+    const c=i%2===0?'black':'white',ct=i%2===0?'黑':'白';
+    const r=Math.floor(p/BOARD_SIZE)+1,col=p%BOARD_SIZE+1;
+    return `<span class="move-item"><span class="stone-mini ${c}"></span>${i+1}.${ct}(${col},${r})</span>`;
+  }).join('');
+}
+function goToSharePhase(){
+  if(solutionMoves.length===0){showStatus('请先录制至少一步解答！');return}
+  createPhase='share';
+  document.getElementById('phaseSolution').classList.remove('active');
+  document.getElementById('phaseShare').classList.add('active');
+  document.getElementById('boardStatus').textContent='出题模式 — 复制链接分享到领英';
+  document.getElementById('shareUrlBox').value=generateShareURL();
+  render();
+}
+function generateShareURL(){
+  const data={init:savedInitialBoard,sol:solutionMoves};
+  const encoded=btoa(JSON.stringify(data));
+  const base=window.location.href.split('#')[0];
+  return base+'#p='+encoded;
+}
+function copyShareUrl(){
+  const u=document.getElementById('shareUrlBox');u.select();
+  navigator.clipboard.writeText(u.value).then(()=>showStatus('链接已复制到剪贴板！'))
+  .catch(()=>{document.execCommand('copy');showStatus('链接已复制！')});
+}
+function testPuzzle(){
+  puzzleData={init:[...savedInitialBoard],sol:[...solutionMoves]};
+  switchTab('play');
+}
+
+function loadPuzzleFromURL(){
+  const h=window.location.hash;
+  if(h.startsWith('#p=')){
+    try{const d=JSON.parse(atob(h.substring(3)));
+      if(d.init&&d.sol){puzzleData=d;return true}
+    }catch(e){console.error('Failed to load puzzle:',e)}
+  }
+  return false;
+}
+function initPlayMode(){
+  if(!puzzleData){
+    if(!loadPuzzleFromURL()){
+      puzzleData={init:new Array(25).fill(EMPTY),sol:[12,6,18,16,8]};
+    }
+  }
+  playBoard=[...puzzleData.init];playedMoves=[];playMoveIndex=0;
+  isPuzzleSolved=false;isTimerRunning=false;timerStart=0;
+  if(timerInterval){clearInterval(timerInterval);timerInterval=null}
+  document.getElementById('timerDisplay').textContent='00:00.0';
+  document.getElementById('timerDisplay').classList.remove('running');
+  updatePlayInfo();render();renderLeaderboard();
+}
+function makePlayMove(pos){
+  if(isPuzzleSolved)return;
+  if(playBoard[pos]!==EMPTY)return;
+  if(!isTimerRunning)startTimer();
+  const expected=puzzleData.sol[playMoveIndex];
+  if(pos===expected){
+    const c=playMoveIndex%2===0?BLACK:WHITE;
+    playBoard[pos]=c;playedMoves.push(pos);playMoveIndex++;
+    updatePlayInfo();render();
+    if(playMoveIndex>=puzzleData.sol.length)onPuzzleSolved();
+  }else{
+    showWrongMove(pos);
+  }
+}
+function showWrongMove(pos){
+  const c=playMoveIndex%2===0?BLACK:WHITE;
+  playBoard[pos]=c;render();
+  const{x,y}=posToXY(pos);
+  ctx.save();ctx.strokeStyle='#ff0000';ctx.lineWidth=5;ctx.lineCap='round';
+  ctx.beginPath();ctx.moveTo(x-18,y-18);ctx.lineTo(x+18,y+18);
+  ctx.moveTo(x+18,y-18);ctx.lineTo(x-18,y+18);ctx.stroke();ctx.restore();
+  const a=document.createElement('div');a.className='alert shake';a.textContent='❌ 不对！重新开始！';
+  document.body.appendChild(a);
+  canvas.classList.add('shake-board');
+  setTimeout(()=>{canvas.classList.remove('shake-board')},400);
+  setTimeout(()=>{
+    a.remove();
+    playBoard=[...puzzleData.init];playedMoves=[];playMoveIndex=0;isPuzzleSolved=false;
+    updatePlayInfo();render();
+  },1200);
+}
+function resetPlay(resetTimer){
+  playBoard=[...puzzleData.init];playedMoves=[];playMoveIndex=0;isPuzzleSolved=false;
+  if(resetTimer){
+    if(timerInterval){clearInterval(timerInterval);timerInterval=null}
+    isTimerRunning=false;timerStart=0;
+    document.getElementById('timerDisplay').textContent='00:00.0';
+    document.getElementById('timerDisplay').classList.remove('running');
+  }
+  updatePlayInfo();render();
+}
+function manualReset(){resetPlay(true)}
+function updatePlayInfo(){
+  const el=document.getElementById('playInfo');
+  if(isPuzzleSolved){el.innerHTML='🎉 通关！';return}
+  if(!isTimerRunning){el.innerHTML='⚫ 黑先 — 点击棋盘开始解题';return}
+  const c=playMoveIndex%2===0?'⚫ 黑子':'⚪ 白子';
+  el.innerHTML=`第 ${playMoveIndex+1}/${puzzleData.sol.length} 步 — ${c}落子`;
+}
+function onPuzzleSolved(){
+  isPuzzleSolved=true;stopTimer();
+  const t=(Date.now()-timerStart)/1000;
+  const s=document.createElement('div');s.className='success-msg';
+  s.innerHTML=`🎉 恭喜通关！<br><span style="font-size:16px">用时 ${formatTime(t)}</span>`;
+  document.body.appendChild(s);
+  launchConfetti();
+  setTimeout(()=>{
+    s.remove();
+    document.getElementById('nameModal').classList.add('active');
+    document.getElementById('playerName').focus();
+  },2000);
+  updatePlayInfo();
+}
+function showSolutionHint(){
+  if(!puzzleData||isPuzzleSolved)return;
+  const hb=[...puzzleData.init],hm={};
+  puzzleData.sol.forEach((p,i)=>{hb[p]=i%2===0?BLACK:WHITE;hm[p]=i+1});
+  ctx.clearRect(0,0,CANVAS_SIZE,CANVAS_SIZE);drawBoardBackground();drawGrid();
+  for(let i=0;i<25;i++){if(hb[i]!==EMPTY){const{x,y}=posToXY(i);drawStone(x,y,hb[i],hm[i])}}
+  document.getElementById('playInfo').innerHTML='👁 显示解答中...';
+  setTimeout(()=>{render();updatePlayInfo()},3000);
+}
+
+function startTimer(){timerStart=Date.now();isTimerRunning=true;
+  document.getElementById('timerDisplay').classList.add('running');
+  timerInterval=setInterval(updateTimerDisplay,100);
+}
+function stopTimer(){isTimerRunning=false;
+  document.getElementById('timerDisplay').classList.remove('running');
+  if(timerInterval){clearInterval(timerInterval);timerInterval=null}
+}
+function updateTimerDisplay(){
+  if(!isTimerRunning)return;
+  const t=(Date.now()-timerStart)/1000;
+  document.getElementById('timerDisplay').textContent=formatTime(t);
+}
+function formatTime(s){
+  const m=Math.floor(s/60),sec=s%60;
+  return `${String(m).padStart(2,'0')}:${sec.toFixed(1).padStart(4,'0')}`;
+}
+
+function getLeaderboardKey(){
+  if(puzzleData){return 'go5_lb_'+btoa(JSON.stringify(puzzleData)).substring(0,20).replace(/[^a-zA-Z0-9]/g,'')}
+  return 'go5_lb_default';
+}
+function getLeaderboard(){
+  try{return JSON.parse(localStorage.getItem(getLeaderboardKey())||'[]')}catch{return[]}
+}
+function addToLeaderboard(name,time){
+  const lb=getLeaderboard();
+  lb.push({name:name||'匿名',time:time,date:new Date().toISOString()});
+  lb.sort((a,b)=>a.time-b.time);
+  try{localStorage.setItem(getLeaderboardKey(),JSON.stringify(lb))}catch{}
+}
+function renderLeaderboard(){
+  const lb=getLeaderboard(),list=document.getElementById('leaderboardList');
+  if(lb.length===0){list.innerHTML='<div class="leaderboard-empty">暂无记录，快来成为第一个！</div>';return}
+  const medals=['🥇','🥈','🥉'];
+  list.innerHTML=lb.slice(0,20).map((e,i)=>{
+    const r=i<3?medals[i]:(i+1)+'';
+    return `<div class="leaderboard-item"><span class="rank">${r}</span><span class="name">${escapeHtml(e.name)}</span><span class="time">${formatTime(e.time)}</span></div>`;
+  }).join('');
+}
+function escapeHtml(t){const d=document.createElement('div');d.textContent=t;return d.innerHTML}
+function submitScore(){
+  const n=document.getElementById('playerName').value.trim();
+  const t=(Date.now()-timerStart)/1000;
+  addToLeaderboard(n,t);
+  document.getElementById('nameModal').classList.remove('active');
+  document.getElementById('playerName').value='';
+  renderLeaderboard();showStatus('成绩已记录！');
+}
+function clearLeaderboard(){
+  if(confirm('确定清除排行榜？')){localStorage.removeItem(getLeaderboardKey());renderLeaderboard()}
+}
+
+function launchConfetti(){
+  effectCanvas.style.display='block';
+  const particles=[],colors=['#e94560','#f9c80e','#16f4d0','#7b2cbf','#ff6b35','#4ecdc4','#ffd700'];
+  for(let i=0;i<180;i++){
+    particles.push({
+      x:CANVAS_SIZE/2+(Math.random()-0.5)*100,y:CANVAS_SIZE/2,
+      vx:(Math.random()-0.5)*12,vy:-Math.random()*15-5,
+      gravity:0.3,size:Math.random()*8+4,
+      color:colors[Math.floor(Math.random()*colors.length)],
+      rotation:Math.random()*Math.PI*2,rotationSpeed:(Math.random()-0.5)*0.3,
+      life:1.0,shape:Math.random()>0.5?'rect':'circle'
+    });
+  }
+  function animate(){
+    effectCtx.clearRect(0,0,CANVAS_SIZE,CANVAS_SIZE);
+    let alive=false;
+    particles.forEach(p=>{
+      p.vy+=p.gravity;p.x+=p.vx;p.y+=p.vy;
+      p.rotation+=p.rotationSpeed;p.life-=0.008;
+      if(p.life>0&&p.y<CANVAS_SIZE+20){
+        alive=true;effectCtx.save();
+        effectCtx.translate(p.x,p.y);effectCtx.rotate(p.rotation);
+        effectCtx.globalAlpha=Math.min(1,p.life);effectCtx.fillStyle=p.color;
+        if(p.shape==='rect'){effectCtx.fillRect(-p.size/2,-p.size/2,p.size,p.size*0.6)}
+        else{effectCtx.beginPath();effectCtx.arc(0,0,p.size/2,0,Math.PI*2);effectCtx.fill()}
+        effectCtx.restore();
+      }
+    });
+    if(alive)requestAnimationFrame(animate);
+    else{effectCtx.clearRect(0,0,CANVAS_SIZE,CANVAS_SIZE);effectCanvas.style.display='none'}
+  }
+  animate();
+}
+
+function switchTab(tab){
+  currentMode=tab;
+  document.getElementById('tabCreate').classList.toggle('active',tab==='create');
+  document.getElementById('tabPlay').classList.toggle('active',tab==='play');
+  document.getElementById('createPanel').style.display=tab==='create'?'block':'none';
+  document.getElementById('playPanel').style.display=tab==='play'?'block':'none';
+  if(tab==='create'){
+    createPhase='position';editBoard=new Array(25).fill(EMPTY);
+    document.getElementById('phasePosition').classList.add('active');
+    document.getElementById('phaseSolution').classList.remove('active');
+    document.getElementById('phaseShare').classList.remove('active');
+    document.getElementById('boardStatus').textContent='出题模式 — 点击棋盘摆放黑白子';
+  }else{
+    document.getElementById('boardStatus').textContent='解题模式 — 黑先，黑白交替';
+    initPlayMode();
+  }
+  render();
+}
+
+function getCanvasPos(clientX,clientY){
+  const rect=canvas.getBoundingClientRect();
+  const sx=canvas.width/rect.width,sy=canvas.height/rect.height;
+  return xyToPos((clientX-rect.left)*sx,(clientY-rect.top)*sy);
+}
+canvas.addEventListener('click',e=>{
+  const pos=getCanvasPos(e.clientX,e.clientY);if(pos<0)return;
+  if(currentMode==='create'){
+    if(createPhase==='position'){
+      if(editBoard[pos]===placementColor)editBoard[pos]=EMPTY;
+      else editBoard[pos]=placementColor;
+      render();
+    }else if(createPhase==='solution')addSolutionMove(pos);
+  }else if(currentMode==='play')makePlayMove(pos);
+});
+canvas.addEventListener('mousemove',e=>{
+  const pos=getCanvasPos(e.clientX,e.clientY);
+  if(pos!==hoverPos){
+    hoverPos=pos;render();
+    if(pos>=0){
+      const b=getDisplayBoard();
+      if(b[pos]===EMPTY){
+        let hc;
+        if(currentMode==='create'){
+          if(createPhase==='position')hc=placementColor;
+          else if(createPhase==='solution')hc=solutionMoves.length%2===0?BLACK:WHITE;
+          else return;
+        }else{if(isPuzzleSolved)return;hc=playMoveIndex%2===0?BLACK:WHITE}
+        drawHover(pos,hc);
+      }
+    }
+  }
+});
+canvas.addEventListener('mouseleave',()=>{hoverPos=-1;render()});
+canvas.addEventListener('touchend',e=>{
+  e.preventDefault();const t=e.changedTouches[0];
+  const pos=getCanvasPos(t.clientX,t.clientY);if(pos<0)return;
+  if(currentMode==='create'){
+    if(createPhase==='position'){
+      if(editBoard[pos]===placementColor)editBoard[pos]=EMPTY;
+      else editBoard[pos]=placementColor;render();
+    }else if(createPhase==='solution')addSolutionMove(pos);
+  }else if(currentMode==='play')makePlayMove(pos);
+},{passive:false});
+
+function showStatus(msg){
+  const s=document.getElementById('boardStatus');s.textContent=msg;
+  setTimeout(()=>{
+    if(currentMode==='create'){
+      s.textContent=createPhase==='position'?'出题模式 — 点击棋盘摆放黑白子':
+        createPhase==='solution'?'出题模式 — 按顺序点击交叉点录制解答（黑先）':
+        '出题模式 — 复制链接分享到领英';
+    }else s.textContent='解题模式 — 黑先，黑白交替';
+  },2000);
+}
+function downloadSource(){
+  const clone=document.documentElement.cloneNode(true);
+  const su=clone.querySelector('#shareUrlBox');if(su)su.value='';
+  const ml=clone.querySelector('#moveList');if(ml)ml.innerHTML='';
+  const ll=clone.querySelector('#leaderboardList');if(ll)ll.innerHTML='';
+  const td=clone.querySelector('#timerDisplay');if(td)td.textContent='00:00.0';
+  const html='<!DOCTYPE html>\n'+clone.outerHTML;
+  const blob=new Blob([html],{type:'text/html;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.download='go_puzzle_5x5.html';
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
+  URL.revokeObjectURL(url);showStatus('源代码已下载！');
+}
+function exportPuzzle(){
+  const data=puzzleData||{init:[...savedInitialBoard],sol:[...solutionMoves]};
+  if(!data.sol||data.sol.length===0){showStatus('请先创建题目！');return}
+  const json=JSON.stringify(data,null,2);
+  const blob=new Blob([json],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.download='go_puzzle_config.json';
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
+  URL.revokeObjectURL(url);showStatus('题目配置已导出！');
+}
+function showHelp(){document.getElementById('helpModal').classList.add('active')}
+function closeHelp(){document.getElementById('helpModal').classList.remove('active')}
+document.getElementById('playerName').addEventListener('keypress',e=>{if(e.key==='Enter')submitScore()});
+
+function init(){
+  if(loadPuzzleFromURL()){
+    switchTab('play');
+  }else{
+    render();
+  }
+}
+init();
+</script>
+</body>
+</html>
